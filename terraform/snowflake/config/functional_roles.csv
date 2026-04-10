@@ -1,0 +1,8 @@
+name,comment
+DATA_ENGINEER,dbt developers and data engineers — full transformation access
+DATA_ANALYST,General analysts — broad read access across all ANALYTICS
+FINANCE_ANALYST,Finance team — finance marts access
+OPERATIONS_ANALYST,Operations team — shared dims access
+HR_ANALYST,HR team — shared dims access
+MARKETING_ANALYST,Marketing team — shared dims and marketing marts access
+SALES_ANALYST,Sales team — shared dims and sales marts access

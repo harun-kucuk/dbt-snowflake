@@ -1,0 +1,6 @@
+# Airflow-specific dependencies — isolated from the root requirements.txt (dbt CI only)
+# cosmos 1.8.x supports dbt 1.5-1.9; dbt 1.11.x (used in CI) is too new for this cosmos release.
+# The Airflow container uses 1.9.x — separate env from CI, same SQL semantics.
+# dbt runs from its own dedicated virtualenv referenced by the DAG config,
+# so dbt-snowflake is NOT installed here — no Airflow/dbt dep conflicts.
+astronomer-cosmos==1.14.0

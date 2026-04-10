@@ -1,0 +1,99 @@
+name: tf-ci
+
+on:
+  pull_request:
+    paths:
+      - "terraform/snowflake/**"
+
+concurrency:
+  group: terraform-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/snowflake
+
+    env:
+      AWS_ACCESS_KEY_ID:         ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY:     ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION:                ${{ secrets.AWS_REGION }}
+      TF_VAR_snowflake_password: ${{ secrets.SNOWFLAKE_TERRAFORM_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -var-file=envs/prod.tfvars -no-color 2>&1 | tee /tmp/tf-plan-full.txt | \
+            awk '/^(No changes|Terraform will perform|Changes to Outputs|Plan:)/{found=1} found{print}' \
+            > /tmp/tf-plan.txt
+          exit ${PIPESTATUS[0]}
+        continue-on-error: true
+
+      - name: Show full Terraform error
+        if: steps.plan.outcome == 'failure'
+        run: cat /tmp/tf-plan-full.txt
+
+      - name: Post plan comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs      = require('fs');
+            const outcome = '${{ steps.plan.outcome }}';
+            const plan    = fs.readFileSync('/tmp/tf-plan.txt', 'utf8');
+            const status  = outcome === 'success' ? '✅ success' : '❌ failed';
+            const marker  = '### Terraform Plan';
+
+            // Delete previous plan comments from this bot
+            const comments = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+            });
+            for (const c of comments.data) {
+              if (c.user.type === 'Bot' && c.body.startsWith(marker)) {
+                await github.rest.issues.deleteComment({
+                  owner:      context.repo.owner,
+                  repo:       context.repo.repo,
+                  comment_id: c.id,
+                });
+              }
+            }
+
+            const body = `${marker} — \`${{ github.event.pull_request.head.sha }}\`
+            **Status:** ${status}
+
+            <details><summary>Show plan</summary>
+
+            \`\`\`
+            ${plan}
+            \`\`\`
+            </details>`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+              body,
+            });
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: int_nations__with_region
+    description: >
+      Enrichment helper: nations joined to regions. No surrogate key — this is a shared join
+      utility used by dim_customers and dim_suppliers to avoid duplicating the same logic.
+      Not a consumer-facing model; never referenced by marts directly.
+      Grain: one row per nation_key.
+    columns:
+      - name: nation_key
+        description: Natural key from stg_tpch__nations (n_nationkey).
+        data_tests:
+          - unique
+          - not_null
+      - name: nation_name
+        data_tests:
+          - unique
+          - not_null
+      - name: region_key
+        data_tests:
+          - not_null
+      - name: region_name
+        data_tests:
+          - not_null

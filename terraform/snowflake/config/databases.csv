@@ -1,0 +1,3 @@
+name,comment
+RAW,Raw source data loaded by the EL tool
+ANALYTICS,Production analytics database — dbt output

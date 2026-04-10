@@ -1,0 +1,221 @@
+version: 2
+
+models:
+  - name: fct_orders
+    description: >
+      One row per order with surrogate primary key plus surrogate foreign keys to
+      dim_customers (customer_key) and dim_dates (order_date_key).
+      Grain: order_key (surrogate on order_natural_key).
+    columns:
+      - name: order_key
+        description: Surrogate primary key (hash of order_natural_key).
+        data_tests:
+          - unique
+          - not_null
+      - name: order_natural_key
+        description: Natural key from source (o_orderkey).
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_key
+        description: Surrogate FK to dim_customers.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_key
+      - name: order_date_key
+        description: Surrogate FK to dim_dates.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dates')
+              field: date_key
+      - name: order_date
+        data_tests: [not_null]
+      - name: order_status
+        data_tests: [not_null]
+      - name: total_price
+        description: Total order value in USD. Sum of extended prices across all line items.
+        data_tests:
+          - not_null
+          - assert_not_negative
+          - assert_column_sum_positive
+
+  - name: fct_order_items
+    description: >
+      One row per order line item with surrogate primary key and surrogate foreign keys to
+      fct_orders (order_key), dim_parts (part_key), and dim_suppliers (supplier_key).
+      Includes computed pricing columns.
+      Grain: order_item_key (surrogate on order_key + line_number).
+    columns:
+      - name: order_item_key
+        description: Surrogate primary key (hash of order_key + line_number).
+        data_tests:
+          - unique
+          - not_null
+      - name: order_key
+        description: Surrogate FK to fct_orders.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_key
+          - assert_no_orphaned_fk:
+              parent_model: ref('fct_orders')
+              parent_column: order_key
+      - name: part_key
+        description: Surrogate FK to dim_parts.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_parts')
+              field: part_key
+          - assert_no_orphaned_fk:
+              parent_model: ref('dim_parts')
+              parent_column: part_key
+      - name: supplier_key
+        description: Surrogate FK to dim_suppliers.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_suppliers')
+              field: supplier_key
+          - assert_no_orphaned_fk:
+              parent_model: ref('dim_suppliers')
+              parent_column: supplier_key
+      - name: line_number
+        data_tests: [not_null]
+      - name: quantity
+        data_tests: [not_null]
+      - name: extended_price
+        description: Gross line item value in USD (quantity * unit price before discount).
+        data_tests:
+          - not_null
+          - assert_not_negative
+      - name: discount
+        description: Fractional discount applied to the line item (0.0–1.0).
+        data_tests: [not_null, assert_not_negative]
+      - name: tax
+        description: Fractional tax rate applied after discount (0.0–1.0).
+        data_tests: [not_null, assert_not_negative]
+      - name: discounted_price
+        description: extended_price * (1 - discount). Net revenue before tax.
+        data_tests: [not_null, assert_not_negative]
+      - name: net_price
+        description: extended_price * (1 - discount) * (1 + tax). Final billed amount including tax.
+        data_tests:
+          - not_null
+          - assert_not_negative
+          - assert_column_sum_positive
+      - name: return_flag
+        data_tests: [not_null]
+      - name: line_status
+        data_tests: [not_null]
+      - name: ship_date
+        data_tests: [not_null]
+
+  - name: orders_mart
+    description: >
+      Wide, denormalized table joining order line items with order, customer, part, supplier,
+      and date attributes. Designed for BI tools and ad-hoc analytics.
+      Grain: one row per order line item (order_item_key).
+    columns:
+      - name: order_item_key
+        description: Surrogate primary key (from fct_order_items).
+        data_tests: [unique, not_null]
+      - name: line_number
+        description: Line item number within the order.
+        data_tests: [not_null]
+      - name: order_id
+        description: Natural key of the order (o_orderkey).
+        data_tests: [not_null]
+      - name: order_date
+        description: Date the order was placed.
+        data_tests: [not_null]
+      - name: order_status
+        description: Current status of the order (O=open, F=fulfilled, P=partial).
+        data_tests: [not_null]
+      - name: order_priority
+        description: Priority code assigned to the order.
+      - name: clerk
+        description: Clerk responsible for the order.
+      - name: ship_priority
+        description: Shipping priority flag.
+      - name: order_year
+        description: Calendar year of the order date.
+        data_tests: [not_null]
+      - name: order_quarter
+        description: Calendar quarter of the order date.
+        data_tests: [not_null]
+      - name: order_month
+        description: Calendar month number of the order date.
+        data_tests: [not_null]
+      - name: order_month_name
+        description: Calendar month name of the order date.
+        data_tests: [not_null]
+      - name: customer_id
+        description: Natural key of the customer (c_custkey).
+        data_tests: [not_null]
+      - name: customer_name
+        description: Name of the customer.
+        data_tests: [not_null]
+      - name: market_segment
+        description: Market segment of the customer.
+      - name: customer_nation
+        description: Nation of the customer.
+      - name: customer_region
+        description: Region of the customer.
+      - name: part_id
+        description: Natural key of the part (p_partkey).
+        data_tests: [not_null]
+      - name: part_name
+        description: Name of the part.
+        data_tests: [not_null]
+      - name: brand
+        description: Brand of the part.
+      - name: part_type
+        description: Type/category of the part.
+      - name: manufacturer
+        description: Manufacturer of the part.
+      - name: supplier_id
+        description: Natural key of the supplier (s_suppkey).
+        data_tests: [not_null]
+      - name: supplier_name
+        description: Name of the supplier.
+        data_tests: [not_null]
+      - name: supplier_nation
+        description: Nation of the supplier.
+      - name: supplier_region
+        description: Region of the supplier.
+      - name: quantity
+        description: Number of units ordered.
+        data_tests: [not_null]
+      - name: extended_price
+        description: Gross line item value in USD (quantity * unit price before discount).
+        data_tests: [not_null]
+      - name: discount
+        description: Fractional discount applied to the line item (0.0–1.0).
+        data_tests: [not_null]
+      - name: tax
+        description: Fractional tax rate applied after discount (0.0–1.0).
+        data_tests: [not_null]
+      - name: discounted_price
+        description: extended_price * (1 - discount). Net revenue before tax.
+        data_tests: [not_null]
+      - name: net_price
+        description: extended_price * (1 - discount) * (1 + tax). Final billed amount including tax.
+        data_tests: [not_null]
+      - name: return_flag
+        description: Flag indicating whether the item was returned (R=returned, A=accepted, N=none).
+        data_tests: [not_null]
+      - name: line_status
+        description: Status of the line item (O=open, F=fulfilled).
+        data_tests: [not_null]
+      - name: ship_date
+        description: Date the line item was shipped.
+        data_tests: [not_null]
+      - name: ship_mode
+        description: Mode of shipment (e.g. AIR, RAIL, TRUCK).
+      - name: ship_instructions
+        description: Shipping instructions for the line item.

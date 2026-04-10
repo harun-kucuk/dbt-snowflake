@@ -1,0 +1,59 @@
+version: 2
+
+sources:
+  - name: tpch
+    database: SNOWFLAKE_SAMPLE_DATA
+    schema: TPCH_SF1
+    description: "TPC-H benchmark dataset at scale factor 1 (1GB), provided by Snowflake sample data."
+    # Freshness checks are not configured here because TPC-H is a static dataset
+    # with no load timestamp columns. In a production source loaded via Fivetran,
+    # add loaded_at_field: _fivetran_synced and freshness: {warn_after: {count: 6,
+    # period: hour}, error_after: {count: 12, period: hour}} to transactional tables.
+    tables:
+      - name: customer
+        description: "Customer master data."
+        columns:
+          - name: c_custkey
+            description: "Primary key."
+            data_tests: [unique, not_null]
+      - name: lineitem
+        description: "Individual line items within an order."
+        columns:
+          - name: l_orderkey
+            description: "Foreign key to orders."
+            data_tests: [not_null]
+          - name: l_linenumber
+            description: "Line number within the order."
+            data_tests: [not_null]
+      - name: nation
+        description: "Nation reference table."
+        columns:
+          - name: n_nationkey
+            data_tests: [unique, not_null]
+      - name: orders
+        description: "Order header records."
+        columns:
+          - name: o_orderkey
+            data_tests: [unique, not_null]
+      - name: part
+        description: "Parts catalog."
+        columns:
+          - name: p_partkey
+            data_tests: [unique, not_null]
+      - name: partsupp
+        description: "Part-supplier relationships and costs."
+        columns:
+          - name: ps_partkey
+            data_tests: [not_null]
+          - name: ps_suppkey
+            data_tests: [not_null]
+      - name: region
+        description: "Region reference table."
+        columns:
+          - name: r_regionkey
+            data_tests: [unique, not_null]
+      - name: supplier
+        description: "Supplier master data."
+        columns:
+          - name: s_suppkey
+            data_tests: [unique, not_null]

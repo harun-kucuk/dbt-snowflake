@@ -1,0 +1,106 @@
+---
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: sf-dbt-airflow:latest
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAG_DISCOVERY_SAFE_MODE: "false"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    # Snowflake credentials — passed through from airflow/.env into containers
+    # profiles.yml reads these same vars for local dbt runs; here they feed the
+    # Airflow Snowflake Connection created by airflow-init below.
+    SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+    SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+    SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+    SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
+    SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    # Mount the dbt project so the DAG can reference models and write dbt_packages/
+    - ../dbt:/opt/airflow/dbt
+
+  env_file:
+    - .env
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob", "--hostname", "$(hostname)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # One-time init: migrate DB, create admin user, register Snowflake connection.
+  # Run with: docker compose up airflow-init
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db upgrade
+
+        airflow users create \
+          --username admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com \
+          --password admin
+
+        airflow connections add snowflake_default \
+          --conn-type snowflake \
+          --conn-login "$${SNOWFLAKE_USER}" \
+          --conn-password "$${SNOWFLAKE_PASSWORD}" \
+          --conn-host "$${SNOWFLAKE_ACCOUNT}" \
+          --conn-extra "{\"account\":\"$${SNOWFLAKE_ACCOUNT}\",\"role\":\"$${SNOWFLAKE_ROLE}\",\"warehouse\":\"$${SNOWFLAKE_WAREHOUSE}\",\"database\":\"ANALYTICS\",\"schema\":\"public\"}" \
+          || echo "Connection snowflake_default already exists, skipping."
+
+        echo "airflow-init complete."
+    restart: "no"
+
+volumes:
+  postgres-db-volume:

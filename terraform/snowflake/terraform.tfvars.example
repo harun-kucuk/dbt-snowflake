@@ -1,0 +1,4 @@
+snowflake_org      = "YOUR_ORG"
+snowflake_account  = "YOUR_ACCOUNT"
+snowflake_user     = "TERRAFORM_USER"
+snowflake_password = "YOUR_PASSWORD"

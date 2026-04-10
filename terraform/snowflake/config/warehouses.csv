@@ -1,0 +1,8 @@
+name,size,auto_suspend_seconds,auto_resume,initially_suspended,statement_timeout_seconds,comment
+DATA_VWH,X-SMALL,60,true,true,3600,dbt transformation and analyst workloads
+LOADER_VWH,X-SMALL,60,true,true,3600,EL tool data loading workloads
+FINANCE_VWH,X-SMALL,120,true,true,1800,Finance team reporting
+OPERATIONS_VWH,X-SMALL,120,true,true,1800,Operations team reporting
+HR_VWH,X-SMALL,120,true,true,1800,HR team reporting
+MARKETING_VWH,X-SMALL,120,true,true,1800,Marketing team reporting
+SALES_VWH,X-SMALL,120,true,true,1800,Sales team reporting

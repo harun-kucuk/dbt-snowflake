@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: dim_suppliers
+    description: >
+      One row per supplier enriched with nation and region attributes.
+      Surrogate primary key generated on supplier_natural_key.
+      Grain: supplier_key (surrogate).
+    columns:
+      - name: supplier_key
+        description: Surrogate primary key (hash of supplier_natural_key).
+        data_tests:
+          - unique
+          - not_null
+      - name: supplier_natural_key
+        description: Natural key from source (s_suppkey).
+        data_tests:
+          - unique
+          - not_null
+      - name: supplier_name
+        data_tests: [not_null]
+      - name: nation_key
+        data_tests: [not_null]
+      - name: nation_name
+        data_tests: [not_null]
+      - name: region_key
+        data_tests: [not_null]
+      - name: region_name
+        data_tests: [not_null]
+
+  - name: dim_parts
+    description: >
+      One row per part from the parts catalog with a surrogate primary key.
+      Grain: part_key (surrogate).
+    columns:
+      - name: part_key
+        description: Surrogate primary key (hash of part_natural_key).
+        data_tests:
+          - unique
+          - not_null
+      - name: part_natural_key
+        description: Natural key from source (p_partkey).
+        data_tests:
+          - unique
+          - not_null
+      - name: part_name
+        data_tests: [not_null]
+      - name: manufacturer
+        data_tests: [not_null]
+      - name: brand
+        data_tests: [not_null]
+      - name: part_type
+        description: Type/category of the part.
+      - name: size
+        description: Size of the part.
+      - name: container
+        description: Container type used to ship the part.
+      - name: retail_price
+        description: Retail price of the part in USD.
+      - name: comment
+        description: Free-text comment from source.

@@ -1,0 +1,35 @@
+name: 'sf_dbt'
+version: '1.0.0'
+profile: 'sf_dbt'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+on-run-start:
+  - "{{ create_audit_log_table() }}"
+
+models:
+  sf_dbt:
+    +post-hook: ["{{ audit_log() }}"]
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: table
+      +schema: intermediate
+    marts:
+      +materialized: table
+      shared:
+        +schema: marts_shared
+      finance:
+        +schema: marts_finance
+      supply_chain:
+        +schema: marts_supply_chain

@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: >
+      One row per customer enriched with nation and region attributes.
+      Surrogate primary key generated on customer_natural_key.
+      Grain: customer_key (surrogate).
+    columns:
+      - name: customer_key
+        description: Surrogate primary key (hash of customer_natural_key).
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_natural_key
+        description: Natural key from source (c_custkey).
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_name
+        data_tests: [not_null]
+      - name: market_segment
+        data_tests: [not_null]
+      - name: nation_key
+        data_tests: [not_null]
+      - name: nation_name
+        data_tests: [not_null]
+      - name: region_key
+        data_tests: [not_null]
+      - name: region_name
+        data_tests: [not_null]
+
+  - name: dim_dates
+    description: >
+      Date spine covering the full TPC-H date range (1992-01-01 to 1998-12-31),
+      generated via dbt_utils.date_spine. One row per calendar day.
+      Grain: date_key (surrogate on date_day).
+    columns:
+      - name: date_key
+        description: Surrogate primary key (hash of date_day).
+        data_tests:
+          - unique
+          - not_null
+      - name: date_day
+        description: Calendar date.
+        data_tests:
+          - unique
+          - not_null
+      - name: year
+        data_tests: [not_null]
+      - name: quarter
+        data_tests: [not_null]
+      - name: month
+        data_tests: [not_null]
+      - name: week_of_year
+        data_tests: [not_null]
+      - name: day_of_month
+        data_tests: [not_null]
+      - name: day_of_week
+        data_tests: [not_null]
+      - name: month_name
+        data_tests: [not_null]
+      - name: day_name
+        data_tests: [not_null]
+      - name: is_weekend
+        data_tests: [not_null]
+      - name: year_month
+        data_tests: [not_null]
